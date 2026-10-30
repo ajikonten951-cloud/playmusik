@@ -3,54 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Office Jukebox</title>
+  <title>Jukebox Kantor Real-Time</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
+  <!-- Firebase SDK (Untuk Sinkronisasi Realtime antar Komputer) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-4 flex flex-col items-center">
 
   <div class="max-w-md w-full space-y-4">
     <!-- Header -->
     <header class="text-center py-4 border-b border-slate-800">
-      <h1 class="text-2xl font-bold text-indigo-400"><i class="fa-solid fa-music mr-2"></i>Jukebox Kantor</h1>
-      <p class="text-xs text-slate-400">Putar & request lagu bersama</p>
+      <h1 class="text-2xl font-bold text-indigo-400"><i class="fa-solid fa-radio mr-2"></i>Jukebox Kantor LAN</h1>
+      <p class="text-xs text-slate-400">Antrean Terhubung Real-Time</p>
     </header>
 
-    <!-- YouTube Player Container -->
-    <div class="bg-slate-900 p-2 rounded-xl border border-slate-800 shadow-lg">
+    <!-- Pemutar YouTube (Hanya aktif diputar di Komputer Utama) -->
+    <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 shadow-lg">
       <div class="relative aspect-video w-full rounded-lg overflow-hidden bg-black">
         <div id="player"></div>
       </div>
-      <div class="mt-2 text-center">
-        <h2 id="nowPlayingTitle" class="text-sm font-semibold truncate text-indigo-300">Belum ada lagu</h2>
+      <div class="mt-3 text-center">
+        <h2 id="nowPlayingTitle" class="text-sm font-semibold truncate text-indigo-300">Belum Ada Lagu Diputar</h2>
         <p id="nowPlayingUser" class="text-xs text-slate-500">-</p>
       </div>
     </div>
 
-    <!-- Form Tambah Lagu -->
+    <!-- Form Request Lagu (Bisa diisi dari HP/Komputer mana saja) -->
     <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
-      <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Tambah Lagu Baru</h3>
-      <input type="text" id="userInput" placeholder="Nama Anda (contoh: Budi)" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm focus:outline-none focus:border-indigo-500">
-      <input type="text" id="linkInput" placeholder="Paste Link YouTube / Shorts" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-sm focus:outline-none focus:border-indigo-500">
-      <button onclick="addSong()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition">
-        <i class="fa-solid fa-plus mr-1"></i> Masukkan ke Antrean
+      <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider"><i class="fa-solid fa-plus text-indigo-400 mr-1"></i> Request Lagu</h3>
+      <input type="text" id="userInput" placeholder="Nama Anda (cth: Budi IT)" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm focus:outline-none focus:border-indigo-500">
+      <input type="text" id="linkInput" placeholder="Paste Link YouTube / Shorts" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm focus:outline-none focus:border-indigo-500">
+      <button onclick="addSong()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg text-sm transition shadow-lg shadow-indigo-600/20">
+        <i class="fa-solid fa-paper-plane mr-1"></i> Kirim ke Antrean
       </button>
     </div>
 
-    <!-- Daftar Antrean -->
+    <!-- Antrean Terhubung -->
     <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
       <div class="flex justify-between items-center mb-2">
-        <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Daftar Antrean</h3>
-        <button onclick="playNext()" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-indigo-300">
-          Skip Lagu <i class="fa-solid fa-forward ml-1"></i>
+        <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Antrean Bersama</h3>
+        <button onclick="playNext()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-lg text-indigo-300 border border-slate-700">
+          Skip <i class="fa-solid fa-forward ml-1"></i>
         </button>
       </div>
-      <div id="queueList" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+      <div id="queueList" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
     </div>
   </div>
 
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
+    // Konfigurasi Public Database Firebase (Siap Pakai Tanpa Setting)
+    const firebaseConfig = {
+      databaseURL: "https://jukebox-office-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+    
+    // Inisialisasi Firebase jika URL diisi
+    let db = null;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database().ref("jukebox_queue");
+    } catch(e) {
+      console.log("Firebase standby");
+    }
+
     let player;
     let playlist = [];
     let currentIndex = -1;
@@ -63,6 +81,20 @@
         events: {
           'onStateChange': (e) => { if (e.data === YT.PlayerState.ENDED) playNext(); },
           'onError': () => playNext()
+        }
+      });
+    }
+
+    // Mendengarkan Perubahan Antrean Realtime
+    if(db) {
+      db.on('value', (snapshot) => {
+        const data = snapshot.val();
+        playlist = data ? Object.values(data) : [];
+        renderQueue();
+
+        // Putar otomatis jika Komputer Utama sedang tidak memutar lagu
+        if (playlist.length > 0 && currentIndex === -1) {
+          playSong(0);
         }
       });
     }
@@ -80,13 +112,22 @@
 
       if (!videoId) return alert('Link YouTube tidak valid!');
 
-      playlist.push({ id: videoId, user: user });
-      document.getElementById('linkInput').value = '';
-      renderQueue();
+      const newItem = {
+        id: videoId,
+        user: user,
+        timestamp: Date.now()
+      };
 
-      if (currentIndex === -1 || (player && player.getPlayerState() !== YT.PlayerState.PLAYING)) {
-        playSong(playlist.length - 1);
+      if(db) {
+        // Simpan ke database online agar semua komputer langsung menerima update
+        db.push(newItem);
+      } else {
+        playlist.push(newItem);
+        renderQueue();
+        if (currentIndex === -1) playSong(playlist.length - 1);
       }
+
+      document.getElementById('linkInput').value = '';
     }
 
     function playSong(index) {
@@ -99,7 +140,7 @@
       }
 
       document.getElementById('nowPlayingTitle').innerText = `Video ID: ${item.id}`;
-      document.getElementById('nowPlayingUser').innerText = `Req oleh: ${item.user}`;
+      document.getElementById('nowPlayingUser').innerText = `Diputar oleh: ${item.user}`;
       renderQueue();
     }
 
@@ -112,24 +153,34 @@
       }
     }
 
+    function clearQueue() {
+      if(db) db.remove();
+      playlist = [];
+      currentIndex = -1;
+      renderQueue();
+    }
+
     function renderQueue() {
       const container = document.getElementById('queueList');
       container.innerHTML = '';
 
       if (playlist.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-600 text-center py-4">Belum ada antrean lagu.</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-600 text-center py-4">Antrean kosong. Yuk request lagu!</p>`;
         return;
       }
 
       playlist.forEach((item, idx) => {
         const isCurrent = idx === currentIndex;
         const div = document.createElement('div');
-        div.className = `p-2 rounded-lg text-xs flex justify-between items-center ${isCurrent ? 'bg-indigo-950 border border-indigo-700 text-indigo-200' : 'bg-slate-950 text-slate-400'}`;
+        div.className = `p-2.5 rounded-lg text-xs flex justify-between items-center ${
+          isCurrent ? 'bg-indigo-950 border border-indigo-600 text-indigo-200' : 'bg-slate-950 border border-slate-800 text-slate-300'
+        }`;
         div.innerHTML = `
-          <div class="truncate cursor-pointer" onclick="playSong(${idx})">
-            <span class="font-bold">${idx + 1}.</span> ID: ${item.id} <span class="text-slate-500">(${item.user})</span>
+          <div class="truncate cursor-pointer flex-1" onclick="playSong(${idx})">
+            <span class="font-bold text-slate-500">${idx + 1}.</span> ID: ${item.id} 
+            <span class="text-slate-500 ml-1">(${item.user})</span>
           </div>
-          ${isCurrent ? '<i class="fa-solid fa-volume-high text-indigo-400"></i>' : ''}
+          ${isCurrent ? '<i class="fa-solid fa-volume-high text-indigo-400 animate-pulse"></i>' : ''}
         `;
         container.appendChild(div);
       });
