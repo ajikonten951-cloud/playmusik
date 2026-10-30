@@ -287,7 +287,7 @@
       if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
     
       if (media.type === 'tiktok') {
-        pushToQueue(media.id, `TikTok Video (${media.id})`, 'tiktok');
+        pushToQueue(media.id, ` Video (${media.id})`, 'tiktok');
       } else {
         pushToQueue(media.id, `Video YouTube (${media.id})`, 'youtube');
       }
