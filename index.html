@@ -60,6 +60,10 @@
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 md:p-4 shadow-2xl">
         <div class="relative aspect-video w-full bg-black rounded-xl overflow-hidden border border-slate-800">
           <div id="player"></div>
+          <!-- Pemutar Khusus TikTok (Muncul otomatis saat memutar link TikTok) -->
+          <div id="tiktokContainer" class="hidden absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-y-auto">
+            <div id="tiktokPlayer" class="w-full h-full flex items-center justify-center"></div>
+          </div>
         </div>
 
         <div class="mt-3 flex items-center justify-between gap-3">
@@ -82,7 +86,7 @@
             <i class="fa-solid fa-magnifying-glass"></i> Cari Judul / Artis
           </button>
           <button id="tabLinkBtn" onclick="switchTab('link')" class="text-xs md:text-sm font-medium text-slate-400 border-b-2 border-transparent pb-1.5 hover:text-slate-200 transition flex items-center gap-2">
-            <i class="fa-solid fa-link"></i> Paste Link YouTube
+            <i class="fa-solid fa-link"></i> Paste Link YouTube / TikTok
           </button>
         </div>
 
@@ -103,10 +107,10 @@
           <div id="searchResults" class="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pt-1"></div>
         </div>
 
-        <!-- Mode Link YouTube Direct -->
+        <!-- Mode Link YouTube / TikTok Direct -->
         <div id="linkMode" class="space-y-3 hidden">
           <div class="flex gap-2">
-            <input type="text" id="linkInput" placeholder="https://www.youtube.com/watch?v=..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+            <input type="text" id="linkInput" placeholder="https://www.youtube.com/... atau https://www.tiktok.com/..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
             <button onclick="addByLink()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition flex items-center gap-1.5 flex-shrink-0">
               <i class="fa-solid fa-paper-plane"></i> Kirim
             </button>
@@ -188,7 +192,7 @@
       });
     }
 
-       function extractVideoId(url) {
+    function extractVideoId(url) {
       // Cek apakah link TikTok
       if (url.includes('tiktok.com')) {
         const match = url.match(/video\/(\d+)/);
@@ -271,7 +275,7 @@
               <p class="text-xs font-semibold truncate text-slate-200">${title}</p>
               <p class="text-[10px] text-slate-500 mt-0.5">${uploader}</p>
             </div>
-            <button onclick="pushToQueue('${videoId}', '${title.replace(/'/g, "\\'")}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex-shrink-0">
+            <button onclick="pushToQueue('${videoId}', '${title.replace(/'/g, "\\'")}', 'youtube')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition flex-shrink-0">
               + Tambah
             </button>
           `;
@@ -280,64 +284,39 @@
       });
     }
 
-     function addByLink() {
-  const link = document.getElementById('linkInput').value.trim();
-  const media = extractVideoId(link);
-  
-  if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
+    function addByLink() {
+      const link = document.getElementById('linkInput').value.trim();
+      const media = extractVideoId(link);
+      
+      if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
 
-  // Ubah teks di sini agar lebih bersih/samarkan tulisan labelnya
-  if (media.type === 'tiktok') {
-    pushToQueue(media.id, `Putar Musik TikTok (${media.id.substring(0, 6)}...)`, 'tiktok');
-  } else {
-    pushToQueue(media.id, `Audio YouTube (${media.id})`, 'youtube');
-  }
-  
-  document.getElementById('linkInput').value = '';
-}
-    // function addByLink() {
-    //   const link = document.getElementById('linkInput').value.trim();
-    //   const videoId = extractVideoId(link);
-    //   if (!videoId) return alert('Format link YouTube tidak valid!');
+      if (media.type === 'tiktok') {
+        pushToQueue(media.id, `TikTok Video (${media.id.substring(0, 6)}...)`, 'tiktok');
+      } else {
+        pushToQueue(media.id, `Audio YouTube (${media.id})`, 'youtube');
+      }
+      
+      document.getElementById('linkInput').value = '';
+    }
 
-    //   pushToQueue(videoId, `Video YouTube (${videoId})`);
-    //   document.getElementById('linkInput').value = '';
-    // }
     function pushToQueue(id, title, type = 'youtube') {
-  const user = document.getElementById('userInput').value.trim() || 'Rekan Kantor';
-  const newItem = {
-    id: id,
-    title: title,
-    user: user,
-    type: type, // Menyimpan tipe media (youtube/tiktok)
-    timestamp: Date.now()
-  };
+      const user = document.getElementById('userInput').value.trim() || 'Rekan Kantor';
+      const newItem = {
+        id: id,
+        title: title,
+        user: user,
+        type: type, 
+        timestamp: Date.now()
+      };
 
-  if(db) {
-    db.push(newItem);
-  } else {
-    playlist.push(newItem);
-    renderQueue();
-    if (currentIndex === -1) playSong(playlist.length - 1);
-  }
-}
-    // function pushToQueue(id, title) {
-    //   const user = document.getElementById('userInput').value.trim() || 'Rekan Kantor';
-    //   const newItem = {
-    //     id: id,
-    //     title: title,
-    //     user: user,
-    //     timestamp: Date.now()
-    //   };
-
-    //   if(db) {
-    //     db.push(newItem);
-    //   } else {
-    //     playlist.push(newItem);
-    //     renderQueue();
-    //     if (currentIndex === -1) playSong(playlist.length - 1);
-    //   }
-    // }
+      if(db) {
+        db.push(newItem);
+      } else {
+        playlist.push(newItem);
+        renderQueue();
+        if (currentIndex === -1) playSong(playlist.length - 1);
+      }
+    }
 
     function deleteSong(key, index) {
       if (!confirm('Hapus lagu ini dari antrean?')) return;
@@ -377,8 +356,37 @@
       currentIndex = index;
       const item = playlist[currentIndex];
 
-      if (player && player.loadVideoById) {
-        player.loadVideoById(item.id);
+      const ytPlayerDiv = document.getElementById('player');
+      const tiktokContainer = document.getElementById('tiktokContainer');
+      const tiktokPlayer = document.getElementById('tiktokPlayer');
+
+      // Cek apakah jenis medianya TikTok atau YouTube
+      if (item.type === 'tiktok') {
+        if (player && player.stopVideo) player.stopVideo();
+        ytPlayerDiv.style.display = 'none';
+        tiktokContainer.classList.remove('hidden');
+
+        tiktokPlayer.innerHTML = `
+          <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@user/video/${item.id}" data-video-id="${item.id}" style="max-width: 605px; min-width: 250px;" > 
+            <section> </section> 
+          </blockquote> 
+        `;
+        
+        if (!window.TiktokEmbed) {
+          const script = document.createElement('script');
+          script.src = "https://www.tiktok.com/embed.js";
+          script.async = true;
+          document.body.appendChild(script);
+        } else {
+          window.TiktokEmbed.load();
+        }
+      } else {
+        tiktokContainer.classList.add('hidden');
+        ytPlayerDiv.style.display = 'block';
+
+        if (player && player.loadVideoById) {
+          player.loadVideoById(item.id);
+        }
       }
 
       document.getElementById('nowPlayingTitle').innerText = item.title || item.id;
@@ -441,5 +449,3 @@
   </script>
 </body>
 </html>
-
-```
