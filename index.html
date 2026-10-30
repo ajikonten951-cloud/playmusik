@@ -188,10 +188,17 @@
       });
     }
 
-    function extractVideoId(url) {
+       function extractVideoId(url) {
+      // Cek apakah link TikTok
+      if (url.includes('tiktok.com')) {
+        const match = url.match(/video\/(\d+)/);
+        return match ? { id: match[1], type: 'tiktok' } : { id: url, type: 'tiktok' };
+      }
+      
+      // Cek apakah link YouTube
       const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
       const match = url.match(regExp);
-      return (match && match[2].length === 11) ? match[2] : null;
+      return (match && match[2].length === 11) ? { id: match[2], type: 'youtube' } : null;
     }
 
     function switchTab(mode) {
@@ -273,32 +280,63 @@
       });
     }
 
-    function addByLink() {
+        function addByLink() {
       const link = document.getElementById('linkInput').value.trim();
-      const videoId = extractVideoId(link);
-      if (!videoId) return alert('Format link YouTube tidak valid!');
-
-      pushToQueue(videoId, `Video YouTube (${videoId})`);
+      const media = extractVideoId(link);
+      
+      if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
+    
+      if (media.type === 'tiktok') {
+        pushToQueue(media.id, `TikTok Video (${media.id})`, 'tiktok');
+      } else {
+        pushToQueue(media.id, `Video YouTube (${media.id})`, 'youtube');
+      }
+      
       document.getElementById('linkInput').value = '';
     }
+    // function addByLink() {
+    //   const link = document.getElementById('linkInput').value.trim();
+    //   const videoId = extractVideoId(link);
+    //   if (!videoId) return alert('Format link YouTube tidak valid!');
 
-    function pushToQueue(id, title) {
-      const user = document.getElementById('userInput').value.trim() || 'Rekan Kantor';
-      const newItem = {
-        id: id,
-        title: title,
-        user: user,
-        timestamp: Date.now()
-      };
+    //   pushToQueue(videoId, `Video YouTube (${videoId})`);
+    //   document.getElementById('linkInput').value = '';
+    // }
+    function pushToQueue(id, title, type = 'youtube') {
+  const user = document.getElementById('userInput').value.trim() || 'Rekan Kantor';
+  const newItem = {
+    id: id,
+    title: title,
+    user: user,
+    type: type, // Menyimpan tipe media (youtube/tiktok)
+    timestamp: Date.now()
+  };
 
-      if(db) {
-        db.push(newItem);
-      } else {
-        playlist.push(newItem);
-        renderQueue();
-        if (currentIndex === -1) playSong(playlist.length - 1);
-      }
-    }
+  if(db) {
+    db.push(newItem);
+  } else {
+    playlist.push(newItem);
+    renderQueue();
+    if (currentIndex === -1) playSong(playlist.length - 1);
+  }
+}
+    // function pushToQueue(id, title) {
+    //   const user = document.getElementById('userInput').value.trim() || 'Rekan Kantor';
+    //   const newItem = {
+    //     id: id,
+    //     title: title,
+    //     user: user,
+    //     timestamp: Date.now()
+    //   };
+
+    //   if(db) {
+    //     db.push(newItem);
+    //   } else {
+    //     playlist.push(newItem);
+    //     renderQueue();
+    //     if (currentIndex === -1) playSong(playlist.length - 1);
+    //   }
+    // }
 
     function deleteSong(key, index) {
       if (!confirm('Hapus lagu ini dari antrean?')) return;
