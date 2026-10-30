@@ -280,20 +280,21 @@
       });
     }
 
-        function addByLink() {
-      const link = document.getElementById('linkInput').value.trim();
-      const media = extractVideoId(link);
-      
-      if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
-    
-      if (media.type === 'tiktok') {
-        pushToQueue(media.id, ` Video (${media.id})`, 'tiktok');
-      } else {
-        pushToQueue(media.id, `Video YouTube (${media.id})`, 'youtube');
-      }
-      
-      document.getElementById('linkInput').value = '';
-    }
+     function addByLink() {
+  const link = document.getElementById('linkInput').value.trim();
+  const media = extractVideoId(link);
+  
+  if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
+
+  // Ubah teks di sini agar lebih bersih/samarkan tulisan labelnya
+  if (media.type === 'tiktok') {
+    pushToQueue(media.id, `Putar Musik TikTok (${media.id.substring(0, 6)}...)`, 'tiktok');
+  } else {
+    pushToQueue(media.id, `Audio YouTube (${media.id})`, 'youtube');
+  }
+  
+  document.getElementById('linkInput').value = '';
+}
     // function addByLink() {
     //   const link = document.getElementById('linkInput').value.trim();
     //   const videoId = extractVideoId(link);
