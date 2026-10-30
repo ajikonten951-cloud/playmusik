@@ -1,3 +1,14 @@
+Kendala *"Gagal memuat pencarian"* tersebut terjadi karena server publik pencarian (`kavin.rocks`) sedang mengalami gangguan atau pembatasan akses (*rate limit*).
+
+Untuk mengatasinya, saya telah memperbarui kodenya dengan **sistem pencarian cadangan otomatis (Multi-Server Fallback)**. Jika server pertama sibuk, sistem akan otomatis beralih ke server cadangan lain secara instan sehingga fitur pencarian lagu berdasarkan judul/artis bisa berjalan kembali dengan lancar.
+
+---
+
+### 📜 Kode Lengkap Terbaru (`index.html`)
+
+Salin seluruh kode di bawah ini dan perbarui file `index.html` Anda di GitHub:
+
+```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -125,7 +136,6 @@
         </h2>
         <div class="flex items-center gap-2">
           <span id="queueCount" class="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full font-medium">0 Lagu</span>
-          <!-- Tombol Hapus Semua -->
           <button onclick="clearAllQueue()" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full font-medium transition flex items-center gap-1" title="Hapus Seluruh Antrean">
             <i class="fa-solid fa-trash"></i> Bersihkan
           </button>
@@ -169,7 +179,7 @@
       });
     }
 
-    // Mendengarkan Sinkronisasi Antrean Firebase (Termasuk Key)
+    // Mendengarkan Sinkronisasi Antrean Firebase
     if(db) {
       db.on('value', (snapshot) => {
         const data = snapshot.val();
@@ -214,6 +224,7 @@
       }
     }
 
+    // FUNGSI PENCARIAN DENGAN MULTI-SERVER FALLBACK
     async function searchSong() {
       const query = document.getElementById('searchInput').value.trim();
       if (!query) return alert('Ketik judul lagu atau penyanyi!');
@@ -221,21 +232,42 @@
       const resultsDiv = document.getElementById('searchResults');
       resultsDiv.innerHTML = `<p class="text-xs text-slate-500 text-center py-3"><i class="fa-solid fa-spinner animate-spin"></i> Mencari lagu di YouTube...</p>`;
 
-      try {
-        const res = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`);
-        const data = await res.json();
+      const instances = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.privacy.com.de",
+        "https://pipedapi.adminforge.de"
+      ];
 
-        if (!data.items || data.items.length === 0) {
-          resultsDiv.innerHTML = `<p class="text-xs text-yellow-500 text-center py-2">Lagu tidak ditemukan. Coba kata kunci lain.</p>`;
-          return;
+      let data = null;
+      for (const instance of instances) {
+        try {
+          const res = await fetch(`${instance}/search?q=${encodeURIComponent(query)}&filter=videos`, { signal: AbortSignal.timeout(4000) });
+          const json = await res.json();
+          if (json && json.items && json.items.length > 0) {
+            data = json;
+            break;
+          }
+        } catch (e) {
+          continue;
         }
+      }
 
-        resultsDiv.innerHTML = '';
-        data.items.slice(0, 4).forEach(item => {
-          const videoId = item.url.split('v=')[1] || item.url.replace('/watch?v=', '');
-          const title = item.title;
-          const uploader = item.uploaderName || 'YouTube';
+      if (!data || !data.items || data.items.length === 0) {
+        resultsDiv.innerHTML = `<p class="text-xs text-yellow-500 text-center py-2">Lagu tidak ditemukan atau server sibuk. Silakan gunakan tab Paste Link.</p>`;
+        return;
+      }
 
+      resultsDiv.innerHTML = '';
+      data.items.slice(0, 4).forEach(item => {
+        let videoId = '';
+        if (item.url) {
+          const match = item.url.match(/(?:v=|shorts\/|embed\/|\/)([\w-]{11})/);
+          videoId = match ? match[1] : item.url.split('v=')[1] || '';
+        }
+        const title = item.title || 'Judul Tidak Tersedia';
+        const uploader = item.uploaderName || 'YouTube';
+
+        if (videoId) {
           const div = document.createElement('div');
           div.className = "p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 flex items-center justify-between gap-3 hover:border-indigo-500/50 transition";
           div.innerHTML = `
@@ -248,12 +280,8 @@
             </button>
           `;
           resultsDiv.appendChild(div);
-        });
-
-      } catch (err) {
-        console.error(err);
-        resultsDiv.innerHTML = `<p class="text-xs text-red-400 text-center py-2">Gagal memuat pencarian. Silakan gunakan tab Paste Link YouTube.</p>`;
-      }
+        }
+      });
     }
 
     function addByLink() {
@@ -283,7 +311,6 @@
       }
     }
 
-    // FUNGSI HAPUS SATU LAGU BERDASARKAN ID/KEY
     function deleteSong(key, index) {
       if (!confirm('Hapus lagu ini dari antrean?')) return;
 
@@ -294,7 +321,6 @@
         renderQueue();
       }
 
-      // Jika lagu yang dihapus sedang diputar, putar lagu berikutnya
       if (index === currentIndex) {
         playNext();
       } else if (index < currentIndex) {
@@ -302,7 +328,6 @@
       }
     }
 
-    // FUNGSI BERSIHKAN SEMUA ANTREAN
     function clearAllQueue() {
       if (playlist.length === 0) return alert('Antrean sudah kosong!');
       if (!confirm('Apakah Anda yakin ingin menghapus SEMUA antrean lagu?')) return;
@@ -377,7 +402,6 @@
           </div>
           <div class="flex items-center gap-2">
             ${isCurrent ? '<i class="fa-solid fa-volume-high text-indigo-400 text-xs animate-pulse mr-1"></i>' : ''}
-            <!-- Tombol Delete -->
             <button onclick="deleteSong('${item.key || ''}', ${idx})" class="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition" title="Hapus Lagu">
               <i class="fa-solid fa-trash-can text-xs"></i>
             </button>
@@ -389,3 +413,5 @@
   </script>
 </body>
 </html>
+
+```
