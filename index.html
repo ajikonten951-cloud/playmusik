@@ -26,9 +26,6 @@
       background: #4f46e5;
       border-radius: 4px;
     }
-    .mirror-video {
-      transform: scaleX(-1);
-    }
   </style>
 </head>
 <body class="text-slate-100 font-sans antialiased min-h-screen flex flex-col">
@@ -42,18 +39,18 @@
         </div>
         <div>
           <h1 class="text-lg md:text-xl font-bold tracking-wide">SNP BERGOYANG</h1>
-          <p class="text-[11px] text-slate-400">Pencarian, Real-time Queue & Live Share</p>
+          <p class="text-[11px] text-slate-400">Synced Real-time Jukebox</p>
         </div>
       </div>
       
       <div id="statusBadge" class="bg-slate-800/80 text-slate-300 text-xs px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-2">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span>Terhubung</span>
+        <span>Terhubung & Sinkron</span>
       </div>
     </div>
   </header>
 
-  <!-- Main Grid Layout -->
+  <!-- Main Grid Layout Responsif -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
     
     <!-- KOLOM KIRI: Pemutar & Input -->
@@ -63,6 +60,7 @@
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 md:p-4 shadow-2xl">
         <div class="relative aspect-video w-full bg-black rounded-xl overflow-hidden border border-slate-800">
           <div id="player"></div>
+          <!-- Pemutar Khusus TikTok -->
           <div id="tiktokContainer" class="hidden absolute inset-0 w-full h-full bg-black flex items-center justify-center overflow-y-auto">
             <div id="tiktokPlayer" class="w-full h-full flex items-center justify-center"></div>
           </div>
@@ -81,6 +79,8 @@
 
       <!-- Form Input & Pencarian -->
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4">
+        
+        <!-- Tab Selector -->
         <div class="flex border-b border-slate-800 pb-2 gap-4">
           <button id="tabSearchBtn" onclick="switchTab('search')" class="text-xs md:text-sm font-semibold text-indigo-400 border-b-2 border-indigo-500 pb-1.5 transition flex items-center gap-2">
             <i class="fa-solid fa-magnifying-glass"></i> Cari Judul / Artis
@@ -90,11 +90,13 @@
           </button>
         </div>
 
+        <!-- Input Nama -->
         <div>
           <label class="block text-[11px] text-slate-400 uppercase tracking-wider mb-1 font-semibold">Nama Anda / Divisi</label>
           <input type="text" id="userInput" placeholder="Contoh: Budi (IT)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
         </div>
 
+        <!-- Mode Pencarian Kata Kunci -->
         <div id="searchMode" class="space-y-3">
           <div class="flex gap-2">
             <input type="text" id="searchInput" onkeypress="if(event.key==='Enter') searchSong()" placeholder="Contoh: Sheila on 7 Dan..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
@@ -105,6 +107,7 @@
           <div id="searchResults" class="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pt-1"></div>
         </div>
 
+        <!-- Mode Link YouTube / TikTok Direct -->
         <div id="linkMode" class="space-y-3 hidden">
           <div class="flex gap-2">
             <input type="text" id="linkInput" placeholder="https://www.youtube.com/... atau https://www.tiktok.com/..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
@@ -113,64 +116,26 @@
             </button>
           </div>
         </div>
+
       </div>
 
     </section>
 
-    <!-- KOLOM KANAN: Live Camera Sharing & Antrean -->
-    <section class="lg:col-span-5 space-y-6">
-
-      <!-- MODUL LIVE CAMERA SHARING -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-3">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h2 class="text-xs md:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-            <i class="fa-solid fa-video text-rose-500"></i> Live Camera Share
-          </h2>
-          <div class="flex items-center gap-2">
-            <button id="toggleCamBtn" onclick="toggleCamera()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5">
-              <i class="fa-solid fa-broadcast-tower"></i> <span>Mulai Siaran</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Tampilan Kamera (Bisa jadi pengirim atau penerima) -->
-        <div class="relative aspect-video w-full bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
-          <!-- Elemen video lokal saat menyiarkan -->
-          <video id="webcamVideo" autoplay playsinline muted class="w-full h-full object-cover hidden mirror-video"></video>
-          <!-- Elemen gambar/video untuk menerima siaran dari komputer lain -->
-          <img id="remoteCamImg" alt="Live Stream" class="w-full h-full object-cover hidden">
-          
-          <canvas id="camCanvas" class="hidden"></canvas>
-
-          <div id="camPlaceholder" class="text-center text-slate-600 p-4">
-            <i class="fa-solid fa-video-slash text-3xl mb-2"></i>
-            <p class="text-xs">Kamera standby. Klik "Mulai Siaran" untuk membagikan kamera ke komputer lain, atau tunggu siaran masuk.</p>
-          </div>
-
-          <div id="camBadge" class="hidden absolute top-3 left-3 bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 backdrop-blur-sm animate-pulse">
-            <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
-            <span id="badgeText">SIARAN AKTIF</span>
-          </div>
+    <!-- KOLOM KANAN: Antrean Real-Time -->
+    <section class="lg:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col h-[480px] lg:h-[calc(100vh-120px)]">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 flex-shrink-0">
+        <h2 class="text-xs md:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+          <i class="fa-solid fa-list-ol text-indigo-400"></i> Antrean Real-Time
+        </h2>
+        <div class="flex items-center gap-2">
+          <span id="queueCount" class="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full font-medium">0 Lagu</span>
+          <button onclick="clearAllQueue()" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full font-medium transition flex items-center gap-1" title="Hapus Seluruh Antrean">
+            <i class="fa-solid fa-trash"></i> Bersihkan
+          </button>
         </div>
       </div>
 
-      <!-- ANTREAN REAL-TIME -->
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col h-[380px]">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 flex-shrink-0">
-          <h2 class="text-xs md:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-            <i class="fa-solid fa-list-ol text-indigo-400"></i> Antrean Real-Time
-          </h2>
-          <div class="flex items-center gap-2">
-            <span id="queueCount" class="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full font-medium">0 Lagu</span>
-            <button onclick="clearAllQueue()" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full font-medium transition flex items-center gap-1" title="Hapus Seluruh Antrean">
-              <i class="fa-solid fa-trash"></i> Bersihkan
-            </button>
-          </div>
-        </div>
-
-        <div id="queueList" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
-      </div>
-
+      <div id="queueList" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
     </section>
 
   </main>
@@ -184,11 +149,11 @@
     };
 
     let db = null;
-    let camDb = null;
+    let syncStateDb = null;
     try {
       firebase.initializeApp(firebaseConfig);
       db = firebase.database().ref("jukebox_queue");
-      camDb = firebase.database().ref("live_camera_stream");
+      syncStateDb = firebase.database().ref("jukebox_sync");
     } catch(e) {
       console.warn("Firebase standby");
     }
@@ -196,149 +161,107 @@
     let player;
     let playlist = [];
     let currentIndex = -1;
+    let isRemoteUpdate = false; // Mencegah looping event sinkronisasi ganda
 
-    // --- LOGIKA LIVE CAMERA SHARING VIA FIREBASE ---
-    let cameraStream = null;
-    let broadcastInterval = null;
-    let isBroadcasting = false;
-
-    async function toggleCamera() {
-      if (isBroadcasting) {
-        stopBroadcasting();
-      } else {
-        await startBroadcasting();
-      }
-    }
-
-    async function startBroadcasting() {
-      const videoElem = document.getElementById('webcamVideo');
-      const placeholder = document.getElementById('camPlaceholder');
-      const badge = document.getElementById('camBadge');
-      const badgeText = document.getElementById('badgeText');
-      const btn = document.getElementById('toggleCamBtn');
-
-      try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 360 } },
-          audio: false
-        });
-
-        videoElem.srcObject = cameraStream;
-        videoElem.classList.remove('hidden');
-        document.getElementById('remoteCamImg').classList.add('hidden');
-        placeholder.classList.add('hidden');
-        badge.classList.remove('hidden');
-        badgeText.innerText = "MENYIARKAN (BROADCAST)";
-
-        isBroadcasting = true;
-        btn.className = "bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5";
-        btn.innerHTML = `<i class="fa-solid fa-stop"></i> <span>Berhentikan Siaran</span>`;
-
-        // Kirim frame kamera ke Firebase setiap ~300ms (~3 FPS)
-        const canvas = document.getElementById('camCanvas');
-        const context = canvas.getContext('2d');
-
-        broadcastInterval = setInterval(() => {
-          if (!isBroadcasting) return;
-          canvas.width = 320;
-          canvas.height = 180;
-          context.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // Kompresi JPEG kualitas 50% agar ringan
-
-          if (camDb) {
-            camDb.set({
-              active: true,
-              image: dataUrl,
-              timestamp: Date.now()
-            });
-          }
-        }, 300);
-
-      } catch (err) {
-        alert('Gagal mengakses kamera: ' + err.message);
-        stopBroadcasting();
-      }
-    }
-
-    function stopBroadcasting() {
-      isBroadcasting = false;
-      if (broadcastInterval) clearInterval(broadcastInterval);
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-        cameraStream = null;
-      }
-
-      if (camDb) {
-        camDb.set({ active: false });
-      }
-
-      const videoElem = document.getElementById('webcamVideo');
-      const placeholder = document.getElementById('camPlaceholder');
-      const badge = document.getElementById('camBadge');
-      const btn = document.getElementById('toggleCamBtn');
-
-      videoElem.srcObject = null;
-      videoElem.classList.add('hidden');
-      placeholder.classList.remove('hidden');
-      badge.classList.add('hidden');
-
-      btn.className = "bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5";
-      btn.innerHTML = `<i class="fa-solid fa-broadcast-tower"></i> <span>Mulai Siaran</span>`;
-    }
-
-    // Mendengarkan Siaran Kamera dari Komputer Lain (Sebagai Penonton)
-    if (camDb) {
-      camDb.on('value', (snapshot) => {
-        const data = snapshot.val();
-        const remoteImg = document.getElementById('remoteCamImg');
-        const placeholder = document.getElementById('camPlaceholder');
-        const badge = document.getElementById('camBadge');
-        const badgeText = document.getElementById('badgeText');
-
-        // Jika komputer ini sedang tidak menyiarkan, terima siaran dari database
-        if (!isBroadcasting) {
-          if (data && data.active && data.image) {
-            remoteImg.src = data.image;
-            remoteImg.classList.remove('hidden');
-            placeholder.classList.add('hidden');
-            badge.classList.remove('hidden');
-            badgeText.innerText = "MENONTON SIARAN";
-          } else {
-            remoteImg.classList.add('hidden');
-            if (!document.getElementById('webcamVideo').classList.contains('hidden') === false) {
-              placeholder.classList.remove('hidden');
-              badge.classList.add('hidden');
-            }
-          }
-        }
-      });
-    }
-
-    // --- LOGIKA PLAYER & YOUTUBE ---
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         height: '100%',
         width: '100%',
         playerVars: { 'autoplay': 1, 'controls': 1, 'rel': 0, 'modestbranding': 1 },
         events: {
-          'onStateChange': (e) => { if (e.data === YT.PlayerState.ENDED) playNext(); },
+          'onReady': () => {
+            // Setelah player siap, dengarkan perintah sinkronisasi dari database
+            listenSyncState();
+          },
+          'onStateChange': (e) => {
+            // Jika lagu habis (ended), otomatis lanjut ke lagu berikutnya
+            if (e.data === YT.PlayerState.ENDED) {
+              playNext();
+            }
+          },
           'onError': () => playNext()
         }
       });
     }
 
+    // 1. Mendengarkan Sinkronisasi Antrean Firebase
     if(db) {
       db.on('value', (snapshot) => {
         const data = snapshot.val();
         playlist = [];
+        
         if (data) {
           Object.keys(data).forEach(key => {
             playlist.push({ key: key, ...data[key] });
           });
         }
+        
         renderQueue();
-        if (playlist.length > 0 && currentIndex === -1) {
-          playSong(0);
+      });
+    }
+
+    // 2. Mendengarkan Status Pemutar yang Sedang Dimainkan (Sync State)
+    function listenSyncState() {
+      if (!syncStateDb) return;
+
+      syncStateDb.on('value', (snapshot) => {
+        const state = snapshot.val();
+        if (!state) return;
+
+        // Cari index lagu berdasarkan ID atau key di dalam playlist lokal
+        const targetIndex = playlist.findIndex(item => item.id === state.videoId);
+        if (targetIndex !== -1) {
+          currentIndex = targetIndex;
+          const item = playlist[currentIndex];
+
+          const ytPlayerDiv = document.getElementById('player');
+          const tiktokContainer = document.getElementById('tiktokContainer');
+          const tiktokPlayer = document.getElementById('tiktokPlayer');
+
+          isRemoteUpdate = true; // Tandai bahwa ini perintah dari server/komputer lain
+
+          if (item.type === 'tiktok') {
+            if (player && player.stopVideo) player.stopVideo();
+            ytPlayerDiv.style.display = 'none';
+            tiktokContainer.classList.remove('hidden');
+
+            tiktokPlayer.innerHTML = `
+              <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@user/video/${item.id}" data-video-id="${item.id}" style="max-width: 605px; min-width: 250px;" > 
+                <section> </section> 
+              </blockquote> 
+            `;
+            if (!window.TiktokEmbed) {
+              const script = document.createElement('script');
+              script.src = "https://www.tiktok.com/embed.js";
+              script.async = true;
+              document.body.appendChild(script);
+            } else {
+              window.TiktokEmbed.load();
+            }
+          } else {
+            tiktokContainer.classList.add('hidden');
+            ytPlayerDiv.style.display = 'block';
+
+            if (player && player.loadVideoById) {
+              // Muat video dan sesuaikan detik pemutaran (seekTo) agar sama persis
+              player.loadVideoById({
+                videoId: item.id,
+                startSeconds: state.currentTime || 0
+              });
+
+              if (state.isPlaying) {
+                player.playVideo();
+              } else {
+                player.pauseVideo();
+              }
+            }
+          }
+
+          document.getElementById('nowPlayingTitle').innerText = item.title || item.id;
+          document.getElementById('nowPlayingUser').innerText = `Permintaan oleh: ${item.user}`;
+          renderQueue();
+          
+          setTimeout(() => { isRemoteUpdate = false; }, 1000);
         }
       });
     }
@@ -434,6 +357,7 @@
     function addByLink() {
       const link = document.getElementById('linkInput').value.trim();
       const media = extractVideoId(link);
+      
       if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
 
       if (media.type === 'tiktok') {
@@ -465,17 +389,12 @@
 
     function deleteSong(key, index) {
       if (!confirm('Hapus lagu ini dari antrean?')) return;
+
       if (db && key) {
         db.child(key).remove();
       } else {
         playlist.splice(index, 1);
         renderQueue();
-      }
-
-      if (index === currentIndex) {
-        playNext();
-      } else if (index < currentIndex) {
-        currentIndex--;
       }
     }
 
@@ -485,6 +404,7 @@
 
       if (db) {
         db.remove();
+        if (syncStateDb) syncStateDb.remove();
       } else {
         playlist = [];
         renderQueue();
@@ -495,10 +415,21 @@
       document.getElementById('nowPlayingUser').innerText = '-';
     }
 
+    // Fungsi untuk memutar lagu dan menyiarkan state-nya ke semua komputer via Firebase
     function playSong(index) {
       if (index < 0 || index >= playlist.length) return;
       currentIndex = index;
       const item = playlist[currentIndex];
+
+      if (!isRemoteUpdate && syncStateDb) {
+        // Kirim perintah putar ke Firebase agar komputer lain ikut memutar lagu ini
+        syncStateDb.set({
+          videoId: item.id,
+          currentTime: 0,
+          isPlaying: true,
+          timestamp: Date.now()
+        });
+      }
 
       const ytPlayerDiv = document.getElementById('player');
       const tiktokContainer = document.getElementById('tiktokContainer');
@@ -514,7 +445,6 @@
             <section> </section> 
           </blockquote> 
         `;
-        
         if (!window.TiktokEmbed) {
           const script = document.createElement('script');
           script.src = "https://www.tiktok.com/embed.js";
@@ -554,7 +484,7 @@
 
       if (playlist.length === 0) {
         container.innerHTML = `
-          <div class="text-center py-10 text-slate-600">
+          <div class="text-center py-16 text-slate-600">
             <i class="fa-solid fa-music text-3xl mb-2"></i>
             <p class="text-xs">Antrean musik masih kosong</p>
           </div>
