@@ -26,6 +26,10 @@
       background: #4f46e5;
       border-radius: 4px;
     }
+    /* Mirroring untuk kamera depan agar terasa alami */
+    .mirror-video {
+      transform: scaleX(-1);
+    }
   </style>
 </head>
 <body class="text-slate-100 font-sans antialiased min-h-screen flex flex-col">
@@ -121,21 +125,57 @@
 
     </section>
 
-    <!-- KOLOM KANAN: Antrean Real-Time -->
-    <section class="lg:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col h-[480px] lg:h-[calc(100vh-120px)]">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 flex-shrink-0">
-        <h2 class="text-xs md:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-          <i class="fa-solid fa-list-ol text-indigo-400"></i> Antrean Real-Time
-        </h2>
-        <div class="flex items-center gap-2">
-          <span id="queueCount" class="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full font-medium">0 Lagu</span>
-          <button onclick="clearAllQueue()" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full font-medium transition flex items-center gap-1" title="Hapus Seluruh Antrean">
-            <i class="fa-solid fa-trash"></i> Bersihkan
-          </button>
+    <!-- KOLOM KANAN: Live Camera & Antrean Real-Time -->
+    <section class="lg:col-span-5 space-y-6">
+
+      <!-- MODUL LIVE CAMERA -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 class="text-xs md:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <i class="fa-solid fa-video text-rose-500"></i> Live Camera
+          </h2>
+          <div class="flex items-center gap-2">
+            <button id="toggleCamBtn" onclick="toggleCamera()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5">
+              <i class="fa-solid fa-power-off"></i> <span>Nyalakan</span>
+            </button>
+            <button id="switchCamBtn" onclick="switchCamera()" class="hidden bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition" title="Ganti Kamera">
+              <i class="fa-solid fa-rotate"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="relative aspect-video w-full bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+          <video id="webcamVideo" autoplay playsinline class="w-full h-full object-cover hidden mirror-video"></video>
+          
+          <div id="camPlaceholder" class="text-center text-slate-600 p-4">
+            <i class="fa-solid fa-video-slash text-3xl mb-2"></i>
+            <p class="text-xs">Kamera mati. Klik "Nyalakan" untuk membuka kamera.</p>
+          </div>
+
+          <div id="camBadge" class="hidden absolute top-3 left-3 bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 backdrop-blur-sm animate-pulse">
+            <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+            <span>LIVE</span>
+          </div>
         </div>
       </div>
 
-      <div id="queueList" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
+      <!-- ANTREAN REAL-TIME -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl flex flex-col h-[400px]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 flex-shrink-0">
+          <h2 class="text-xs md:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <i class="fa-solid fa-list-ol text-indigo-400"></i> Antrean Real-Time
+          </h2>
+          <div class="flex items-center gap-2">
+            <span id="queueCount" class="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full font-medium">0 Lagu</span>
+            <button onclick="clearAllQueue()" class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full font-medium transition flex items-center gap-1" title="Hapus Seluruh Antrean">
+              <i class="fa-solid fa-trash"></i> Bersihkan
+            </button>
+          </div>
+        </div>
+
+        <div id="queueList" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
+      </div>
+
     </section>
 
   </main>
@@ -160,6 +200,84 @@
     let playlist = [];
     let currentIndex = -1;
 
+    // --- LOGIKA LIVE CAMERA ---
+    let cameraStream = null;
+    let currentFacingMode = 'user'; // 'user' (depan) atau 'environment' (belakang)
+
+    async function toggleCamera() {
+      if (cameraStream) {
+        stopCamera();
+      } else {
+        await startCamera();
+      }
+    }
+
+    async function startCamera() {
+      const videoElem = document.getElementById('webcamVideo');
+      const placeholder = document.getElementById('camPlaceholder');
+      const badge = document.getElementById('camBadge');
+      const btn = document.getElementById('toggleCamBtn');
+      const switchBtn = document.getElementById('switchCamBtn');
+
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacingMode },
+          audio: false
+        });
+
+        videoElem.srcObject = cameraStream;
+        videoElem.classList.remove('hidden');
+        
+        // Cermin video jika kamera depan
+        if (currentFacingMode === 'user') {
+          videoElem.classList.add('mirror-video');
+        } else {
+          videoElem.classList.remove('mirror-video');
+        }
+
+        placeholder.classList.add('hidden');
+        badge.classList.remove('hidden');
+        switchBtn.classList.remove('hidden');
+
+        btn.className = "bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5";
+        btn.innerHTML = `<i class="fa-solid fa-power-off"></i> <span>Matikan</span>`;
+      } catch (err) {
+        alert('Gagal mengakses kamera: ' + err.message);
+        stopCamera();
+      }
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+
+      const videoElem = document.getElementById('webcamVideo');
+      const placeholder = document.getElementById('camPlaceholder');
+      const badge = document.getElementById('camBadge');
+      const btn = document.getElementById('toggleCamBtn');
+      const switchBtn = document.getElementById('switchCamBtn');
+
+      videoElem.srcObject = null;
+      videoElem.classList.add('hidden');
+      placeholder.classList.remove('hidden');
+      badge.classList.add('hidden');
+      switchBtn.classList.add('hidden');
+
+      btn.className = "bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5";
+      btn.innerHTML = `<i class="fa-solid fa-power-off"></i> <span>Nyalakan</span>`;
+    }
+
+    async function switchCamera() {
+      currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+      if (cameraStream) {
+        stopCamera();
+        await startCamera();
+      }
+    }
+
+    // --- LOGIKA PLAYER & YOUTUBE ---
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         height: '100%',
@@ -411,7 +529,7 @@
 
       if (playlist.length === 0) {
         container.innerHTML = `
-          <div class="text-center py-16 text-slate-600">
+          <div class="text-center py-12 text-slate-600">
             <i class="fa-solid fa-music text-3xl mb-2"></i>
             <p class="text-xs">Antrean musik masih kosong</p>
           </div>
