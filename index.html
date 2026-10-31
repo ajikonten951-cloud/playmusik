@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SNP BERGOYANG</title>
+  <title>SNP BERGOYANG - Synced Jukebox</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   
@@ -43,14 +43,19 @@
         </div>
       </div>
       
-      <div id="statusBadge" class="bg-slate-800/80 text-slate-300 text-xs px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span>Terhubung & Sinkron</span>
+      <div class="flex items-center gap-2">
+        <button id="roleBtn" onclick="toggleRole()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-full border border-slate-700 transition flex items-center gap-1.5 text-indigo-300">
+          <i class="fa-solid fa-desktop"></i> <span id="roleText">Peran: Penonton / Client</span>
+        </button>
+        <div id="statusBadge" class="bg-slate-800/80 text-slate-300 text-xs px-3 py-1.5 rounded-full border border-slate-700 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Terhubung</span>
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Grid Layout Responsif -->
+  <!-- Main Grid Layout -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
     
     <!-- KOLOM KIRI: Pemutar & Input -->
@@ -58,6 +63,15 @@
       
       <!-- Video Player -->
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 md:p-4 shadow-2xl">
+        
+        <!-- Overlay Pembuka Izin Audio untuk Browser -->
+        <div id="syncOverlay" class="mb-3 p-3 bg-indigo-950/90 border border-indigo-500/50 rounded-xl flex items-center justify-between gap-3">
+          <p class="text-xs text-indigo-200"><i class="fa-solid fa-circle-info mr-1.5"></i> Klik tombol di samping agar audio/video tersinkronisasi otomatis di browser ini.</p>
+          <button onclick="enableAudioSync()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex-shrink-0">
+            Aktifkan Sinkronisasi
+          </button>
+        </div>
+
         <div class="relative aspect-video w-full bg-black rounded-xl overflow-hidden border border-slate-800">
           <div id="player"></div>
           <!-- Pemutar Khusus TikTok -->
@@ -79,8 +93,6 @@
 
       <!-- Form Input & Pencarian -->
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-5 shadow-2xl space-y-4">
-        
-        <!-- Tab Selector -->
         <div class="flex border-b border-slate-800 pb-2 gap-4">
           <button id="tabSearchBtn" onclick="switchTab('search')" class="text-xs md:text-sm font-semibold text-indigo-400 border-b-2 border-indigo-500 pb-1.5 transition flex items-center gap-2">
             <i class="fa-solid fa-magnifying-glass"></i> Cari Judul / Artis
@@ -90,13 +102,11 @@
           </button>
         </div>
 
-        <!-- Input Nama -->
         <div>
           <label class="block text-[11px] text-slate-400 uppercase tracking-wider mb-1 font-semibold">Nama Anda / Divisi</label>
           <input type="text" id="userInput" placeholder="Contoh: Budi (IT)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
         </div>
 
-        <!-- Mode Pencarian Kata Kunci -->
         <div id="searchMode" class="space-y-3">
           <div class="flex gap-2">
             <input type="text" id="searchInput" onkeypress="if(event.key==='Enter') searchSong()" placeholder="Contoh: Sheila on 7 Dan..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
@@ -107,7 +117,6 @@
           <div id="searchResults" class="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pt-1"></div>
         </div>
 
-        <!-- Mode Link YouTube / TikTok Direct -->
         <div id="linkMode" class="space-y-3 hidden">
           <div class="flex gap-2">
             <input type="text" id="linkInput" placeholder="https://www.youtube.com/... atau https://www.tiktok.com/..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs md:text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500">
@@ -116,7 +125,6 @@
             </button>
           </div>
         </div>
-
       </div>
 
     </section>
@@ -143,17 +151,16 @@
   <script src="https://www.youtube.com/iframe_api"></script>
 
   <script>
-    // ⚠️ MASUKKAN URL FIREBASE REALTIME DATABASE ANDA DI SINI
     const firebaseConfig = {
       databaseURL: "https://musik-6b437-default-rtdb.asia-southeast1.firebasedatabase.app/"
     };
 
     let db = null;
-    let syncStateDb = null;
+    let syncDb = null;
     try {
       firebase.initializeApp(firebaseConfig);
       db = firebase.database().ref("jukebox_queue");
-      syncStateDb = firebase.database().ref("jukebox_sync");
+      syncDb = firebase.database().ref("jukebox_current_state");
     } catch(e) {
       console.warn("Firebase standby");
     }
@@ -161,7 +168,27 @@
     let player;
     let playlist = [];
     let currentIndex = -1;
-    let isRemoteUpdate = false; // Mencegah looping event sinkronisasi ganda
+    let isHost = false; // Status apakah komputer ini adalah Master/Host
+    let lastSyncedId = null;
+
+    function enableAudioSync() {
+      document.getElementById('syncOverlay').classList.add('hidden');
+      if (player && player.playVideo) {
+        player.playVideo();
+      }
+    }
+
+    function toggleRole() {
+      isHost = !isHost;
+      const roleText = document.getElementById('roleText');
+      if (isHost) {
+        roleText.innerText = "Peran: Komputer Utama (HOST)";
+        alert("Komputer ini diatur sebagai HOST. Perubahan pemutaran di sini akan mengontrol komputer lain.");
+      } else {
+        roleText.innerText = "Peran: Penonton / Client";
+        alert("Komputer ini diatur sebagai CLIENT. Pemutar akan otomatis mengikuti HOST.");
+      }
+    }
 
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
@@ -169,14 +196,14 @@
         width: '100%',
         playerVars: { 'autoplay': 1, 'controls': 1, 'rel': 0, 'modestbranding': 1 },
         events: {
-          'onReady': () => {
-            // Setelah player siap, dengarkan perintah sinkronisasi dari database
-            listenSyncState();
-          },
+          'onReady': () => { listenToSyncState(); },
           'onStateChange': (e) => {
-            // Jika lagu habis (ended), otomatis lanjut ke lagu berikutnya
-            if (e.data === YT.PlayerState.ENDED) {
-              playNext();
+            if (e.data === YT.PlayerState.ENDED) playNext();
+            // Jika HOST melakukan pause/play manual
+            if (isHost && syncDb) {
+              const isPlaying = e.data === YT.PlayerState.PLAYING;
+              const currentTime = player.getCurrentTime ? player.getCurrentTime() : 0;
+              syncDb.update({ isPlaying: isPlaying, currentTime: currentTime });
             }
           },
           'onError': () => playNext()
@@ -189,82 +216,109 @@
       db.on('value', (snapshot) => {
         const data = snapshot.val();
         playlist = [];
-        
         if (data) {
           Object.keys(data).forEach(key => {
             playlist.push({ key: key, ...data[key] });
           });
         }
-        
         renderQueue();
       });
     }
 
-    // 2. Mendengarkan Status Pemutar yang Sedang Dimainkan (Sync State)
-    function listenSyncState() {
-      if (!syncStateDb) return;
+    // 2. Mendengarkan Status Pemutar Real-Time dari Firebase (Engine Sinkronisasi Utama)
+    function listenToSyncState() {
+      if (!syncDb) return;
 
-      syncStateDb.on('value', (snapshot) => {
+      syncDb.on('value', (snapshot) => {
         const state = snapshot.val();
         if (!state) return;
 
-        // Cari index lagu berdasarkan ID atau key di dalam playlist lokal
-        const targetIndex = playlist.findIndex(item => item.id === state.videoId);
-        if (targetIndex !== -1) {
-          currentIndex = targetIndex;
+        // Jika komputer ini HOST, ia hanya mengirim data dan tidak mengikuti balik dari DB
+        if (isHost) return;
+
+        // Cari index lagu di playlist lokal
+        const targetIdx = playlist.findIndex(item => item.id === state.videoId);
+        if (targetIdx !== -1) {
+          currentIndex = targetIdx;
           const item = playlist[currentIndex];
-
-          const ytPlayerDiv = document.getElementById('player');
-          const tiktokContainer = document.getElementById('tiktokContainer');
-          const tiktokPlayer = document.getElementById('tiktokPlayer');
-
-          isRemoteUpdate = true; // Tandai bahwa ini perintah dari server/komputer lain
-
-          if (item.type === 'tiktok') {
-            if (player && player.stopVideo) player.stopVideo();
-            ytPlayerDiv.style.display = 'none';
-            tiktokContainer.classList.remove('hidden');
-
-            tiktokPlayer.innerHTML = `
-              <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@user/video/${item.id}" data-video-id="${item.id}" style="max-width: 605px; min-width: 250px;" > 
-                <section> </section> 
-              </blockquote> 
-            `;
-            if (!window.TiktokEmbed) {
-              const script = document.createElement('script');
-              script.src = "https://www.tiktok.com/embed.js";
-              script.async = true;
-              document.body.appendChild(script);
-            } else {
-              window.TiktokEmbed.load();
-            }
-          } else {
-            tiktokContainer.classList.add('hidden');
-            ytPlayerDiv.style.display = 'block';
-
-            if (player && player.loadVideoById) {
-              // Muat video dan sesuaikan detik pemutaran (seekTo) agar sama persis
-              player.loadVideoById({
-                videoId: item.id,
-                startSeconds: state.currentTime || 0
-              });
-
-              if (state.isPlaying) {
-                player.playVideo();
-              } else {
-                player.pauseVideo();
-              }
-            }
-          }
 
           document.getElementById('nowPlayingTitle').innerText = item.title || item.id;
           document.getElementById('nowPlayingUser').innerText = `Permintaan oleh: ${item.user}`;
           renderQueue();
-          
-          setTimeout(() => { isRemoteUpdate = false; }, 1000);
+
+          // Jika lagunya berganti
+          if (lastSyncedId !== state.videoId) {
+            lastSyncedId = state.videoId;
+            loadMediaToPlayer(item, state.currentTime, state.isPlaying);
+          } else {
+            // Jika lagunya sama, cek selisih waktu (jika beda > 3 detik, lakukan seekTo)
+            if (player && player.getCurrentTime) {
+              const currentLocalTime = player.getCurrentTime();
+              if (Math.abs(currentLocalTime - state.currentTime) > 3) {
+                player.seekTo(state.currentTime, true);
+              }
+              if (state.isPlaying && player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                player.playVideo();
+              } else if (!state.isPlaying && player.getPlayerState() === YT.PlayerState.PLAYING) {
+                player.pauseVideo();
+              }
+            }
+          }
         }
       });
     }
+
+    function loadMediaToPlayer(item, startTime = 0, isPlaying = true) {
+      const ytPlayerDiv = document.getElementById('player');
+      const tiktokContainer = document.getElementById('tiktokContainer');
+      const tiktokPlayer = document.getElementById('tiktokPlayer');
+
+      if (item.type === 'tiktok') {
+        if (player && player.stopVideo) player.stopVideo();
+        ytPlayerDiv.style.display = 'none';
+        tiktokContainer.classList.remove('hidden');
+
+        tiktokPlayer.innerHTML = `
+          <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@user/video/${item.id}" data-video-id="${item.id}" style="max-width: 605px; min-width: 250px;" > 
+            <section> </section> 
+          </blockquote> 
+        `;
+        if (!window.TiktokEmbed) {
+          const script = document.createElement('script');
+          script.src = "https://www.tiktok.com/embed.js";
+          script.async = true;
+          document.body.appendChild(script);
+        } else {
+          window.TiktokEmbed.load();
+        }
+      } else {
+        tiktokContainer.classList.add('hidden');
+        ytPlayerDiv.style.display = 'block';
+
+        if (player && player.loadVideoById) {
+          player.loadVideoById({
+            videoId: item.id,
+            startSeconds: startTime || 0
+          });
+          if (!isPlaying) player.pauseVideo();
+        }
+      }
+    }
+
+    // Rutin mengirim Waktu Pemutaran (Heartbeat) dari HOST ke Firebase setiap 2 detik
+    setInterval(() => {
+      if (isHost && player && player.getCurrentTime && player.getPlayerState) {
+        const isPlaying = player.getPlayerState() === YT.PlayerState.PLAYING;
+        if (playlist[currentIndex]) {
+          syncDb.set({
+            videoId: playlist[currentIndex].id,
+            currentTime: player.getCurrentTime(),
+            isPlaying: isPlaying,
+            timestamp: Date.now()
+          });
+        }
+      }
+    }, 2000);
 
     function extractVideoId(url) {
       if (url.includes('tiktok.com')) {
@@ -357,7 +411,6 @@
     function addByLink() {
       const link = document.getElementById('linkInput').value.trim();
       const media = extractVideoId(link);
-      
       if (!media) return alert('Format link YouTube atau TikTok tidak valid!');
 
       if (media.type === 'tiktok') {
@@ -389,7 +442,6 @@
 
     function deleteSong(key, index) {
       if (!confirm('Hapus lagu ini dari antrean?')) return;
-
       if (db && key) {
         db.child(key).remove();
       } else {
@@ -404,7 +456,7 @@
 
       if (db) {
         db.remove();
-        if (syncStateDb) syncStateDb.remove();
+        if (syncDb) syncDb.remove();
       } else {
         playlist = [];
         renderQueue();
@@ -415,15 +467,14 @@
       document.getElementById('nowPlayingUser').innerText = '-';
     }
 
-    // Fungsi untuk memutar lagu dan menyiarkan state-nya ke semua komputer via Firebase
     function playSong(index) {
       if (index < 0 || index >= playlist.length) return;
       currentIndex = index;
       const item = playlist[currentIndex];
 
-      if (!isRemoteUpdate && syncStateDb) {
-        // Kirim perintah putar ke Firebase agar komputer lain ikut memutar lagu ini
-        syncStateDb.set({
+      // Kirim pembaruan lagu baru ke Firebase
+      if (syncDb) {
+        syncDb.set({
           videoId: item.id,
           currentTime: 0,
           isPlaying: true,
@@ -431,37 +482,7 @@
         });
       }
 
-      const ytPlayerDiv = document.getElementById('player');
-      const tiktokContainer = document.getElementById('tiktokContainer');
-      const tiktokPlayer = document.getElementById('tiktokPlayer');
-
-      if (item.type === 'tiktok') {
-        if (player && player.stopVideo) player.stopVideo();
-        ytPlayerDiv.style.display = 'none';
-        tiktokContainer.classList.remove('hidden');
-
-        tiktokPlayer.innerHTML = `
-          <blockquote class="tiktok-embed" cite="https://www.tiktok.com/@user/video/${item.id}" data-video-id="${item.id}" style="max-width: 605px; min-width: 250px;" > 
-            <section> </section> 
-          </blockquote> 
-        `;
-        if (!window.TiktokEmbed) {
-          const script = document.createElement('script');
-          script.src = "https://www.tiktok.com/embed.js";
-          script.async = true;
-          document.body.appendChild(script);
-        } else {
-          window.TiktokEmbed.load();
-        }
-      } else {
-        tiktokContainer.classList.add('hidden');
-        ytPlayerDiv.style.display = 'block';
-
-        if (player && player.loadVideoById) {
-          player.loadVideoById(item.id);
-        }
-      }
-
+      loadMediaToPlayer(item, 0, true);
       document.getElementById('nowPlayingTitle').innerText = item.title || item.id;
       document.getElementById('nowPlayingUser').innerText = `Permintaan oleh: ${item.user}`;
       renderQueue();
